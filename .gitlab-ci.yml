@@ -1,39 +1,13 @@
-default:
-  tags:
-    - service
-
 stages:
-  - check
-  - build
   - deploy
 
-check-job:
-  stage: check
-  script:
-    - docker info
-
-build-job:
-  stage: build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
-    - docker build -t $CI_REGISTRY_IMAGE .
-    - docker push $CI_REGISTRY_IMAGE
-
-deploy-job:
+deploy:
+  image:
+    name: minio/mc
+    entrypoint: ['']
   stage: deploy
+  before_script:
+    - rm -rf -- ..?* .[!.]*
+    - mc alias set minio $MINIO_HOST $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
   script:
-    - docker rm -f $CI_PROJECT_PATH_SLUG
-    - >
-      docker run -d
-      --name $CI_PROJECT_PATH_SLUG
-      --restart always
-      --label traefik.enable=true
-      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.entrypoints=https
-      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.rule='Host(`fonts.2w.vc`)'
-      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.tls=true
-      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.tls.certresolver=cloudflare
-      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.service=$CI_PROJECT_PATH_SLUG
-      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.middlewares=all-cors-headers@file,error-handler@file
-      --label traefik.http.services.$CI_PROJECT_PATH_SLUG.loadbalancer.server.port=80
-      --network proxy
-      $CI_REGISTRY_IMAGE:latest
+    - mc mirror --overwrite --remove ./ minio/fonts
